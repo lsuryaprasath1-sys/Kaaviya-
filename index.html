@@ -29,6 +29,9 @@
   <button id="musicToggle" class="music-toggle" aria-label="Toggle Music">
     <i class="fas fa-volume-mute"></i>
   </button>
+  <button id="adminToggle" class="admin-toggle" aria-label="Admin Settings">
+    <i class="fas fa-lock"></i>
+  </button>
 
   <!-- 1. Mystery Intro Section -->
   <section id="introSection" class="intro-section active">
@@ -205,6 +208,46 @@
       </div>
     </div>
   </section>
+
+  <!-- 5. Admin Login & Controls Overlay -->
+  <div id="adminModal" class="admin-modal hidden">
+    <div class="modal-content glass-panel">
+      <button class="close-modal" id="closeAdminModal">&times;</button>
+      
+      <!-- Login Form Section -->
+      <div id="adminLoginSection">
+        <h2 class="admin-modal-title"><i class="fas fa-lock"></i> Admin Login</h2>
+        <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
+          <div class="form-group">
+            <label for="adminUsername">Username</label>
+            <input type="text" id="adminUsername" class="form-control" required placeholder="Enter username" autocomplete="off">
+          </div>
+          <div class="form-group" style="margin-top: 15px;">
+            <label for="adminPassword">Password</label>
+            <input type="password" id="adminPassword" class="form-control" required placeholder="Enter password">
+          </div>
+          <p id="loginErrorMessage" class="error-message hidden">Invalid username or password! ❌</p>
+          <button type="submit" class="btn btn-primary" style="margin-top: 25px; width: 100%; justify-content: center;">
+            <span>Unlock Admin Panel</span> <i class="fas fa-key"></i>
+          </button>
+        </form>
+      </div>
+
+      <!-- Admin Controls Panel (Initially Hidden) -->
+      <div id="adminControlsSection" class="hidden">
+        <h2 class="admin-modal-title" style="color: var(--color-gold);"><i class="fas fa-user-shield"></i> Control Panel</h2>
+        <p class="admin-modal-subtitle">Welcome back, Admin! What would you like to do?</p>
+        <div class="admin-action-area">
+          <button id="adminTriggerCelebration" class="btn btn-primary" style="width: 100%; justify-content: center; margin-bottom: 15px;">
+            <i class="fas fa-birthday-cake"></i> Trigger Birthday Celebration 🎉
+          </button>
+          <button id="adminResetCountdown" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+            <i class="fas fa-clock"></i> Reset Website & Countdown ⏳
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Javascript -->
   <script src="script.js"></script>

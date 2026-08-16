@@ -149,8 +149,13 @@ function getCountdownTarget() {
   return targetDate;
 }
 
+let countdownInterval = null;
+
 function startCountdown() {
   const target = getCountdownTarget();
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+  }
 
   function updateTimer() {
     const now = new Date().getTime();
@@ -178,7 +183,7 @@ function startCountdown() {
 
   // Run immediately then tick every second
   updateTimer();
-  const countdownInterval = setInterval(updateTimer, 1000);
+  countdownInterval = setInterval(updateTimer, 1000);
 }
 
 // ==========================================================================
@@ -829,4 +834,137 @@ function startFireworks() {
   }
 
   animLoop();
+}
+
+// ==========================================================================
+// 10. ADMIN MODAL & CONTROLS LOGIC
+// ==========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  const adminToggle = document.getElementById('adminToggle');
+  const adminModal = document.getElementById('adminModal');
+  const closeAdminModal = document.getElementById('closeAdminModal');
+  const adminTriggerCelebration = document.getElementById('adminTriggerCelebration');
+  const adminResetCountdown = document.getElementById('adminResetCountdown');
+
+  if (adminToggle && adminModal) {
+    adminToggle.addEventListener('click', () => {
+      pauseSlideshow();
+      adminModal.classList.remove('hidden');
+      setTimeout(() => {
+        adminModal.classList.add('show');
+      }, 50);
+    });
+  }
+
+  if (closeAdminModal && adminModal) {
+    closeAdminModal.addEventListener('click', () => {
+      dismissAdminModal();
+    });
+  }
+
+  if (adminModal) {
+    adminModal.addEventListener('click', (e) => {
+      if (e.target === adminModal) {
+        dismissAdminModal();
+      }
+    });
+  }
+
+  function dismissAdminModal() {
+    adminModal.classList.remove('show');
+    setTimeout(() => {
+      adminModal.classList.add('hidden');
+      // Reset form inputs for next open
+      document.getElementById('loginErrorMessage').classList.add('hidden');
+      document.getElementById('adminUsername').value = '';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('adminLoginSection').classList.remove('hidden');
+      document.getElementById('adminControlsSection').classList.add('hidden');
+      if (!isSlideshowPaused) {
+        resumeSlideshow();
+      }
+    }, 500);
+  }
+
+  if (adminTriggerCelebration) {
+    adminTriggerCelebration.addEventListener('click', () => {
+      dismissAdminModal();
+      triggerCelebration();
+    });
+  }
+
+  if (adminResetCountdown) {
+    adminResetCountdown.addEventListener('click', () => {
+      dismissAdminModal();
+      resetToCountdownState();
+    });
+  }
+});
+
+// Global Admin Login Submission Callback
+window.handleAdminLogin = function(event) {
+  event.preventDefault();
+  const usernameInput = document.getElementById('adminUsername').value;
+  const passwordInput = document.getElementById('adminPassword').value;
+  const errorMsg = document.getElementById('loginErrorMessage');
+  const loginSection = document.getElementById('adminLoginSection');
+  const controlsSection = document.getElementById('adminControlsSection');
+
+  // Validation: Username 'kaaviya', Password '26/12'
+  if (usernameInput === 'kaaviya' && passwordInput === '26/12') {
+    errorMsg.classList.add('hidden');
+    loginSection.classList.add('hidden');
+    controlsSection.classList.remove('hidden');
+  } else {
+    errorMsg.classList.remove('hidden');
+    void errorMsg.offsetWidth; // Force CSS reflow to replay shake keyframe
+  }
+};
+
+// Reset website view back to normal Countdown portal
+function resetToCountdownState() {
+  const mainContainer = document.getElementById('mainContainer');
+  const celebrationSection = document.getElementById('celebrationSection');
+  const stage1 = document.getElementById('revealStage1');
+  const stage2 = document.getElementById('revealStage2');
+  const bgMusic = document.getElementById('bgMusic');
+
+  // Pause celebration music and load standard countdown music track
+  bgMusic.pause();
+  bgMusic.src = 'music.mp3.mp3'; // point to the primary file
+  bgMusic.onerror = function() {
+    bgMusic.onerror = null;
+    bgMusic.src = 'https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-493.mp3';
+    bgMusic.load();
+    if (isMusicPlaying) bgMusic.play().catch(() => {});
+  };
+  bgMusic.load();
+  if (isMusicPlaying) {
+    bgMusic.play().catch(() => {});
+  }
+
+  // Fade out celebration view
+  celebrationSection.classList.remove('active');
+  setTimeout(() => {
+    celebrationSection.classList.add('hidden');
+    
+    // Reset stages
+    stage1.classList.remove('hidden');
+    stage1.style.opacity = '1';
+    stage2.classList.add('hidden');
+    stage2.style.opacity = '0';
+    document.getElementById('memoryWall').innerHTML = ''; // wipe wall layout
+
+    // Reveal countdown container
+    mainContainer.classList.remove('hidden');
+    void mainContainer.offsetWidth;
+    mainContainer.style.transition = 'opacity 1s ease, transform 1s ease';
+    mainContainer.style.opacity = '1';
+    mainContainer.style.transform = 'scale(1)';
+    mainContainer.classList.add('show');
+
+    // Resume loops
+    resumeSlideshow();
+    startCountdown();
+  }, 1000);
 }
