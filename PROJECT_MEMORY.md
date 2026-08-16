@@ -67,16 +67,13 @@ The user experience follows a structured emotional flow:
 
 ## Photos & Assets
 * **Audio**:
-  * Primary background audio: `music.mp3.mp3` or `music.mp3` or `assets/audio/music.mp3`.
-  * Celebration background audio: `assets/audio/celebration.mp3`.
+  * Primary background audio: `music.mp3.mp3` or `music.mp3` or `assets/audio/music.mp3` or dynamic `music_url` fetched from Supabase settings.
+  * Celebration background audio: `assets/audio/celebration.mp3` or hosted celebration lullaby.
   * *Fallback*: If local audio fails, the player automatically switches to hosted Mixkit CDN tracks.
 * **Images**:
-  * Real photos uploaded by the user are saved at:
-    * `assets/photos/photo1.jpg` (Saree elegance)
-    * `assets/photos/photo2.jpg` (Birthday marquee lights)
-    * `assets/photos/photo3.jpg` (Couple portrait)
-    * `assets/photos/photo4.jpg` (Rainbow balloon bouquet)
-  * *Fallback*: If local images fail to load, `onerror` handlers switch class states to display a styled glass gradient block and heart indicator.
+  * Real photos uploaded by the user are saved at `assets/photos/photo1.jpg` to `photo4.jpg`.
+  * Dynamically uploaded cloud assets are fetched directly from the **Supabase Storage Bucket** `memories`.
+  * *Fallback*: If local/cloud images fail to load, `onerror` handlers switch class states to display a styled glass gradient block and heart indicator.
 
 ---
 
@@ -96,32 +93,36 @@ Individual cards carry detailed messages typed in a fullscreen modal:
 
 ## Features
 * **Volume Control Toggle**: Mute/unmute background music.
-* **Admin Login**: A lock icon next to the volume button triggers a credential form:
+* **Admin Login**: A lock icon routes to `/admin` which triggers a credential form:
   * **Username**: `kaaviya`
   * **Password**: `26/12`
+  * *Authentication Mechanism*: Translates credentials to the Supabase Auth profile `kaaviya@birthday.com` (password `kaaviya_26_12`) under the hood to comply with password guidelines while preserving exact credentials.
 * **Admin Panel Settings**:
-  * *Controls*: Launch celebration immediately (for previewing) or reset state.
-  * *Themes*: Toggle between Velvet, Starry Gold, Sweet Lavender, and Ocean Coral.
-  * *Memories Editor*: Edit URL paths, add optional Video URLs (MP4 files), change captions, and overwrite modal typewriter texts.
-* **Local Storage Integration**: Active themes and memory configurations are stored in the browser's `localStorage` so changes persist on reload.
-* **Video Asset Support**: Both the desktop slideshow, mobile carousel, modal popup, and memory wall support video rendering automatically if a `videoUrl` is present.
+  * Configure Countdown Target Name, Target Date, Audio URL, Intro titles/texts, and final wish letters stored in Supabase `birthday_settings` table.
+  * Toggle between Velvet, Starry Gold, Sweet Lavender, and Ocean Coral layout themes.
+* **Dropbox-Style Memories File Manager**:
+  * Accessible at `/memories`. View-only for public guests, fully editable for the Admin.
+  * Drag & drop upload, click to upload, progress bar tracking, image/video/PDF metadata previews.
+  * Virtual folder creation, rename directories/files, download files, bulk check-selection, bulk move/delete.
+  * **Gallery Integration**: Checkbox to toggle `is_gallery_photo` or `is_featured` on database metadata. Checking "Slideshow photo" feeds the image/video directly to the landing page slider without writing code.
+* **Realtime Syncing**: Estabishes WebSocket connections so that database changes (adding files, changing countdown settings, deleting media) update instantly across all active client devices.
 
 ---
 
 ## Technical Decisions
-* **Tech Stack**: Vanilla HTML5, CSS3, ES6 JavaScript. No framework overhead.
-* **File Separation**: Clean distribution across `index.html`, `style.css`, and `script.js`.
+* **Frontend Technology**: Next.js App Router (React.js)
+* **Backend Database**: Supabase PostgreSQL (`files`, `folders`, and `birthday_settings` tables)
+* **Cloud File Storage**: Supabase Storage (`memories` public bucket)
+* **Security**: Row Level Security (RLS) on all tables/buckets. Authenticated admin writes, anonymous read SELECTs.
 * **Hosting**: Automated deployment on Vercel connected to the GitHub repository.
-* **Repository Layout**: Pushed directly to the root of the repository to prevent 404 errors.
-* **Offline Portability**: Includes a pre-configured [Khaaviya_Birthday_Project.zip](file:///D:/KHAAVIYA/Khaaviya_Birthday_Project.zip) compilation containing all files.
 
 ---
 
 ## User Preferences
 * Do not use fake/placeholder images; use actual photos of Khaaviya.
-* Prefer simple local image and audio paths so they can be overwritten easily.
 * Autoplay audio immediately after clicking the "Reveal the Surprise" gate.
 * Build should deploy on Vercel (`https://kaaviya-one.vercel.app`).
+* Changes made from one device must update and sync instantly across all devices.
 
 ---
 
@@ -131,22 +132,24 @@ Individual cards carry detailed messages typed in a fullscreen modal:
 ---
 
 ## Completed Tasks
-* [x] Structure HTML with Intro gate, Countdown cards, Slideshow components, and Celebration overlays.
-* [x] Implement Glassmorphic CSS style files, variables, animations, and responsive media rules.
-* [x] Integrate real photo uploads and map configuration keys.
-* [x] Add Admin lock button and form validator (Username: `kaaviya`, Password: `26/12`).
-* [x] Write script engine handling countdown ticks, autoplay transitions, typewriter modalities, and custom HTML5 canvas particles (Fireworks/Confetti).
-* [x] Set up local audio handling with nested `<source>` tracks and online CDN error handlers.
-* [x] Resolve Vercel 404 error by git-initializing local workspace and force-pushing files directly to the root of the `lsuryaprasath1-sys/Kaaviya-` repository.
-* [x] Create Admin Theme Settings tab supporting Velvet, Starry Gold, Sweet Lavender, and Ocean Coral.
-* [x] Create Admin Memories configuration forms supporting URLs, Captions, Details, and optional Video URL fields, saved in `localStorage`.
-* [x] Compile all final project structures into a portable ZIP package.
+* [x] Structure HTML countdown cards, sliders, and celebration elements.
+* [x] Implement Glassmorphic CSS style files, variables, animations, and responsive layouts.
+* [x] Initialize Git and Vercel routing configurations.
+* [x] Bootstrapped Next.js App Router project and migrated styles to `app/globals.css`.
+* [x] Configured Supabase database schema (`folders`, `files`, `birthday_settings`) and `memories` storage bucket.
+* [x] Built Supabase Client utility (`lib/supabase.js`) and environment configs.
+* [x] Built Main Countdown page React component with canvas fireworks and real-time syncing listeners.
+* [x] Built secure Admin Dashboard settings page supporting credentials mapping and form variables updates.
+* [x] Built Dropbox-style Memories File Manager with drag-n-drop uploads, directory structures, and slideshow checkboxes.
+* [x] Documented system structure inside `ARCHITECTURE.md`.
+* [x] Compiled all project files into a downloadable archive (`Khaaviya_Birthday_Project.zip`).
 
 ---
 
 ## Change History
 * **16-Aug-2026**: Initial setup of countdown website structure, CSS formatting, and slideshow transitions.
-* **16-Aug-2026**: Configured local audio elements and resolved Vercel 404 routing by setting repo origin to `https://github.com/lsuryaprasath1-sys/Kaaviya-.git` and force-pushing to the main branch root.
-* **16-Aug-2026**: Replaced initial slideshow config with 4 real photo assets uploaded by the user (`photo1.jpg` to `photo4.jpg`).
-* **16-Aug-2026**: Expanded Admin Panel with Controls tab (Celebration trigger & reset state), Themes tab (Velvet, Starry Gold, Sweet Lavender, Ocean Coral), and Memories tab (Image URLs, Video URLs, Captions, Messages) persisted via `localStorage`.
-* **16-Aug-2026**: Added full video asset support (`videoUrl`) inside slideshow containers, carousel panels, modal windows, and staggered memory wall grids.
+* **16-Aug-2026**: Configured local audio elements and resolved Vercel 404 routing by setting repo origin to `https://github.com/lsuryaprasath1-sys/Kaaviya-.git`.
+* **16-Aug-2026**: Replaced initial slideshow config with 4 real photo assets uploaded by the user.
+* **16-Aug-2026**: Expanded Admin Panel with Controls tab, Themes tab, and Memories tab persisted via `localStorage`.
+* **16-Aug-2026**: Added full video asset support (`videoUrl`) inside slideshow containers, carousel panels, and memory walls.
+* **16-Aug-2026**: Upgraded codebase from static pages to **Next.js + Supabase Cloud backend** (PostgreSQL, Storage, Realtime, Auth), implementing the Dropbox-style Memories File Manager, administrative dashboard controllers, and real-time device synchronization.
