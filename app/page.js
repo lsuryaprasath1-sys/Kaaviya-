@@ -7,25 +7,25 @@ import { supabase } from "@/lib/supabase";
 // Local static fallbacks in case Supabase is not yet configured or tables are empty
 const defaultPhotosConfig = [
   {
-    url: "assets/photos/photo1.jpg",
+    url: "/assets/photos/photo1.jpg",
     videoUrl: "",
     caption: "That elegance ✨",
     message: "You look absolutely beautiful in this saree, Khaaviya! Every single detail of your presence brings a special touch of elegance and grace. ❤️"
   },
   {
-    url: "assets/photos/photo2.jpg",
+    url: "/assets/photos/photo2.jpg",
     videoUrl: "",
     caption: "Happy Birthday vibes! 🎉",
     message: "Your birthday celebration is the highlight of the year! Seeing your glowing face next to your name in lights is the best sight ever. ✨"
   },
   {
-    url: "assets/photos/photo3.jpg",
+    url: "/assets/photos/photo3.jpg",
     videoUrl: "",
     caption: "Together, always ❤️",
     message: "Every moment shared with you is a memory I keep close to my heart. Thank you for being my constant source of joy and laughter. 🥂"
   },
   {
-    url: "assets/photos/photo4.jpg",
+    url: "/assets/photos/photo4.jpg",
     videoUrl: "",
     caption: "That beautiful smile 🌸",
     message: "No flower or balloon background can ever shine brighter than your smile. Never stop being the magical person that you are! 💫"
@@ -235,7 +235,7 @@ export default function Home() {
   const playMusic = () => {
     if (audioRef.current) {
       // Dynamic music setup
-      const audioSource = settings.music_url || "music.mp3.mp3";
+      const audioSource = settings.music_url || "/music.mp3.mp3";
       if (audioRef.current.src !== audioSource) {
         audioRef.current.src = audioSource;
       }
