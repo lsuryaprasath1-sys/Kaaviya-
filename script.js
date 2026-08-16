@@ -11,35 +11,26 @@
 const photosConfig = [
   {
     url: 'assets/photos/photo1.jpg',
-    caption: 'One beautiful memory ❤️',
-    message: 'From the first moment I saw your smile, I knew you were someone incredibly special. Every single memory with you is a treasure I cherish. ✨'
+    caption: 'That elegance ✨',
+    message: 'You look absolutely beautiful in this saree, Khaaviya! Every single detail of your presence brings a special touch of elegance and grace. ❤️'
   },
   {
     url: 'assets/photos/photo2.jpg',
-    caption: 'That smile ✨',
-    message: 'Your laugh has this magical way of turning any ordinary day into a beautiful adventure. Never stop smiling, Khaaviya! ❤️'
+    caption: 'Happy Birthday vibes! 🎉',
+    message: 'Your birthday celebration is the highlight of the year! Seeing your glowing face next to your name in lights is the best sight ever. ✨'
   },
   {
     url: 'assets/photos/photo3.jpg',
-    caption: 'Another moment to remember...',
-    message: 'In all the quiet moments and busy days, you are the sweetest thought in my mind. Here is to making infinite more memories together. 🥂'
+    caption: 'Together, always ❤️',
+    message: 'Every moment shared with you is a memory I keep close to my heart. Thank you for being my constant source of joy and laughter. 🥂'
   },
   {
     url: 'assets/photos/photo4.jpg',
-    caption: 'More memories loading... ❤️',
-    message: 'Every story has a favorite chapter, and my favorite ones are always the ones that feature you. You are pure magic. ✨'
-  },
-  {
-    url: 'assets/photos/photo5.jpg',
-    caption: 'Capturing joy 🌟',
-    message: 'Seeing you happy is my absolute favorite sight in the world. May this new year of your life be filled with endless laughter and dreams come true! 💫'
-  },
-  {
-    url: 'assets/photos/photo6.jpg',
-    caption: 'Forever cherish ❤️',
-    message: 'You deserve the entire universe, Khaaviya. Thank you for just being yourself—simply wonderful and precious in every single way. ❤️'
+    caption: 'That beautiful smile 🌸',
+    message: 'No flower or balloon background can ever shine brighter than your smile. Never stop being the magical person that you are! 💫'
   }
 ];
+
 
 // Slideshow settings
 const SLIDE_DURATION = 4500; // Change photo every 4.5 seconds
