@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A special birthday surprise countdown and memories gallery dedicated to Khaaviya.">
+  <title>For Khaaviya ❤️</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Music (Toggleable) -->
+  <audio id="bgMusic" loop>
+    <source src="music.mp3.mp3" type="audio/mpeg">
+    <source src="music.mp3" type="audio/mpeg">
+    <source src="assets/audio/music.mp3" type="audio/mpeg">
+    <source src="https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-493.mp3" type="audio/mpeg">
+  </audio>
+  <button id="musicToggle" class="music-toggle" aria-label="Toggle Music">
+    <i class="fas fa-volume-mute"></i>
+  </button>
+
+  <!-- 1. Mystery Intro Section -->
+  <section id="introSection" class="intro-section active">
+    <div class="intro-card glass-panel">
+      <div class="heart-icon-wrapper">
+        <i class="fas fa-heart pulse"></i>
+      </div>
+      <h1 class="intro-title">For someone very special...</h1>
+      <p class="intro-text">Every second brings a new reason to smile, and a special moment is quietly making its way to you.</p>
+      <button id="enterBtn" class="btn btn-primary">
+        <span>Reveal the Surprise</span> <i class="fas fa-sparkles"></i>
+      </button>
+    </div>
+  </section>
+
+  <!-- 2. Main Countdown & Slideshow Container -->
+  <main id="mainContainer" class="main-container hidden">
+    
+    <!-- Header -->
+    <header class="main-header">
+      <h1 id="countdownTitle">Something Special Is Waiting For You, Khaaviya ❤️</h1>
+      <p id="countdownSubtitle" class="subtitle">Your special day is getting closer...</p>
+    </header>
+
+    <!-- Countdown Timer Grid -->
+    <section class="countdown-section">
+      <div class="countdown-grid" id="countdownGrid">
+        <div class="countdown-card glass-panel">
+          <span class="countdown-num" id="days">00</span>
+          <span class="countdown-label">DAYS</span>
+        </div>
+        <div class="countdown-card glass-panel">
+          <span class="countdown-num" id="hours">00</span>
+          <span class="countdown-label">HOURS</span>
+        </div>
+        <div class="countdown-card glass-panel">
+          <span class="countdown-num" id="minutes">00</span>
+          <span class="countdown-label">MINUTES</span>
+        </div>
+        <div class="countdown-card glass-panel">
+          <span class="countdown-num" id="seconds">00</span>
+          <span class="countdown-label">SECONDS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slideshow Section -->
+    <section class="memories-section">
+      <div class="section-divider">
+        <p>While you wait... here's a few memories ❤️</p>
+      </div>
+
+      <h2 class="gallery-title">Little Memories ❤️</h2>
+
+      <!-- Slideshow Frame -->
+      <div class="slideshow-frame" id="slideshowFrame">
+        <!-- Cinematic Blurred Background -->
+        <div class="slideshow-blur-bg" id="slideshowBlurBg"></div>
+        
+        <!-- Floating Particles Area -->
+        <div class="particles-container" id="particlesContainer"></div>
+
+        <!-- Desktop Cinematic Gallery Structure -->
+        <div class="desktop-gallery" id="desktopGallery">
+          <div class="gallery-card secondary-card left" id="leftCard">
+            <div class="image-fallback">
+              <i class="fas fa-heart"></i>
+            </div>
+            <img src="" alt="Memory Left" class="gallery-img" onerror="handleImageError(this)">
+          </div>
+          
+          <div class="gallery-card main-card" id="mainCard">
+            <div class="image-fallback">
+              <i class="fas fa-heart"></i>
+              <span>Loading Memory...</span>
+            </div>
+            <img src="" alt="Memory Main" class="gallery-img" onerror="handleImageError(this)">
+            <div class="glow-border"></div>
+          </div>
+          
+          <div class="gallery-card secondary-card right" id="rightCard">
+            <div class="image-fallback">
+              <i class="fas fa-heart"></i>
+            </div>
+            <img src="" alt="Memory Right" class="gallery-img" onerror="handleImageError(this)">
+          </div>
+        </div>
+
+        <!-- Mobile Carousel Structure (Swipable) -->
+        <div class="mobile-gallery" id="mobileGallery">
+          <div class="mobile-carousel-track" id="mobileTrack">
+            <!-- Carousel items will be loaded dynamically via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Slideshow Metadata & Navigation -->
+      <div class="slideshow-controls">
+        <p class="photo-caption" id="photoCaption">One beautiful memory ❤️</p>
+        
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div class="indicator-dots" id="indicatorDots">
+          <!-- Dots rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Memory Button -->
+      <div class="interaction-area">
+        <button id="openMemoryBtn" class="btn btn-secondary">
+          <i class="fas fa-heart"></i> Open a Memory ❤️
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer with secret preview button -->
+    <footer class="main-footer">
+      <p>Made with love for Khaaviya &bull; <span id="secretTrigger" class="secret-trigger"><i class="fas fa-heart-pulse"></i></span></p>
+    </footer>
+  </main>
+
+  <!-- 3. Memory Detail Overlay (Popup Modal) -->
+  <div id="memoryModal" class="memory-modal hidden">
+    <div class="modal-content glass-panel">
+      <button class="close-modal" id="closeModal">&times;</button>
+      <div class="modal-blur-bg" id="modalBlurBg"></div>
+      
+      <div class="modal-image-wrapper">
+        <div class="image-fallback">
+          <i class="fas fa-heart"></i>
+        </div>
+        <img id="modalImg" src="" alt="Selected Memory" onerror="handleImageError(this)">
+        <div class="glow-border"></div>
+      </div>
+      
+      <div class="modal-text-wrapper">
+        <p id="modalMessage" class="modal-message"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. December 26 Birthday Celebration Overlay (Initially Hidden) -->
+  <section id="celebrationSection" class="celebration-section hidden">
+    
+    <!-- Canvas for fireworks and confetti -->
+    <canvas id="fireworksCanvas" class="fireworks-canvas"></canvas>
+    
+    <div class="balloon-container" id="balloonContainer"></div>
+
+    <div class="celebration-content">
+      <!-- Cinematic Initial Reveal Text -->
+      <div class="reveal-stage active" id="revealStage1">
+        <h1 class="hbd-title text-grow">🎉 HAPPY BIRTHDAY 🎉</h1>
+        <h2 class="khaaviya-title text-glow">KHAAVIYA ❤️</h2>
+      </div>
+
+      <!-- Memory Wall Reveal Stage -->
+      <div class="reveal-stage hidden" id="revealStage2">
+        <h2 class="stage-title">Your Memories, Today & Always</h2>
+        <div class="memory-wall" id="memoryWall">
+          <!-- Staggered grid filled dynamically via JS -->
+        </div>
+        
+        <div class="birthday-card glass-panel fade-in-up">
+          <p class="final-quote" id="finalQuote">
+            "Every picture has a story.<br>
+            Every memory has a feeling.<br>
+            And today is all about you, Khaaviya. ❤️"
+          </p>
+          <h3 class="final-wishes">Happy Birthday, Khaaviya! 🎂❤️</h3>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Javascript -->
+  <script src="script.js"></script>
+</body>
+</html>
