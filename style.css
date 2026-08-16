@@ -1337,13 +1337,15 @@ h1, h2, h3 {
 }
 
 .admin-modal .modal-content {
-  max-width: 420px;
+  max-width: 480px;
   width: 100%;
-  padding: 35px;
+  padding: 35px 25px;
   display: block;
   transform: scale(0.95);
   transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   border: 1px solid rgba(255, 82, 119, 0.2);
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 .admin-modal.show .modal-content {
@@ -1363,10 +1365,10 @@ h1, h2, h3 {
 }
 
 .admin-modal-subtitle {
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
   text-align: center;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
   line-height: 1.4;
 }
 
@@ -1422,4 +1424,172 @@ h1, h2, h3 {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
 }
+
+/* Tab Navigation */
+.admin-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 5px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+  color: var(--color-romantic-light);
+}
+
+.tab-btn.active {
+  color: var(--color-romantic);
+  border-bottom-color: var(--color-romantic);
+}
+
+.admin-tab-content {
+  animation: fadeInUpAnim 0.4s ease forwards;
+}
+
+/* Theme Grid */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.theme-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #fff;
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.theme-select-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.theme-select-btn.active {
+  background: rgba(255, 82, 119, 0.15);
+  border-color: var(--color-romantic);
+  box-shadow: 0 0 10px rgba(255, 82, 119, 0.2);
+}
+
+.theme-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Memories Editor Form */
+.memories-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+  margin-bottom: 10px;
+}
+
+.memories-form-container::-webkit-scrollbar {
+  width: 4px;
+}
+.memories-form-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.memory-slot-editor {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slot-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-romantic);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+/* ==========================================================================
+   THEME VARIABLES OVERRIDES
+   ========================================================================== */
+/* Starry Gold Theme */
+body.theme-starry {
+  --bg-primary: radial-gradient(circle at center, #0B192C 0%, #000814 100%);
+  --bg-secondary: #000814;
+  --color-romantic: #ffd700;
+  --color-romantic-light: #ffeaa7;
+  --color-gold: #ffffff;
+  --color-rose-glow: rgba(255, 215, 0, 0.35);
+  --color-gold-glow: rgba(255, 255, 255, 0.4);
+  --glass-border-hover: rgba(255, 215, 0, 0.2);
+}
+body.theme-starry .floating-heart {
+  color: rgba(255, 215, 0, 0.4);
+}
+
+/* Sweet Lavender Theme */
+body.theme-lavender {
+  --bg-primary: radial-gradient(circle at center, #260f38 0%, #0c0214 100%);
+  --bg-secondary: #0c0214;
+  --color-romantic: #c58ff7;
+  --color-romantic-light: #f5e8ff;
+  --color-gold: #ffe3a0;
+  --color-rose-glow: rgba(197, 143, 247, 0.35);
+  --color-gold-glow: rgba(255, 227, 160, 0.3);
+  --glass-border-hover: rgba(197, 143, 247, 0.25);
+}
+body.theme-lavender .floating-heart {
+  color: rgba(197, 143, 247, 0.4);
+}
+
+/* Ocean Coral Theme */
+body.theme-ocean {
+  --bg-primary: radial-gradient(circle at center, #071e22 0%, #020b0c 100%);
+  --bg-secondary: #020b0c;
+  --color-romantic: #ff6b6b;
+  --color-romantic-light: #ffd2d2;
+  --color-gold: #4ecdc4;
+  --color-rose-glow: rgba(255, 107, 107, 0.35);
+  --color-gold-glow: rgba(78, 205, 196, 0.3);
+  --glass-border-hover: rgba(255, 107, 107, 0.25);
+}
+body.theme-ocean .floating-heart {
+  color: rgba(255, 107, 107, 0.4);
+}
+
 

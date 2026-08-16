@@ -8,28 +8,38 @@
 // ==========================================================================
 // Feel free to replace these image URLs with real photos of Khaaviya!
 // You can also add more photos, change the captions, or adjust the emotional messages.
-const photosConfig = [
+const defaultPhotosConfig = [
   {
     url: 'assets/photos/photo1.jpg',
+    videoUrl: '',
     caption: 'That elegance ✨',
     message: 'You look absolutely beautiful in this saree, Khaaviya! Every single detail of your presence brings a special touch of elegance and grace. ❤️'
   },
   {
     url: 'assets/photos/photo2.jpg',
+    videoUrl: '',
     caption: 'Happy Birthday vibes! 🎉',
     message: 'Your birthday celebration is the highlight of the year! Seeing your glowing face next to your name in lights is the best sight ever. ✨'
   },
   {
     url: 'assets/photos/photo3.jpg',
+    videoUrl: '',
     caption: 'Together, always ❤️',
     message: 'Every moment shared with you is a memory I keep close to my heart. Thank you for being my constant source of joy and laughter. 🥂'
   },
   {
     url: 'assets/photos/photo4.jpg',
+    videoUrl: '',
     caption: 'That beautiful smile 🌸',
     message: 'No flower or balloon background can ever shine brighter than your smile. Never stop being the magical person that you are! 💫'
   }
 ];
+
+let photosConfig = JSON.parse(localStorage.getItem('photosConfig')) || defaultPhotosConfig;
+
+// Load Saved Theme
+const savedTheme = localStorage.getItem('siteTheme') || 'velvet';
+document.body.className = `theme-${savedTheme}`;
 
 
 // Slideshow settings
@@ -199,13 +209,17 @@ function setupMobileCarousel() {
     const slide = document.createElement('div');
     slide.className = 'mobile-carousel-item';
     
+    const mediaHtml = photo.videoUrl 
+      ? `<video src="${photo.videoUrl}" autoplay loop muted playsinline class="gallery-img" onerror="handleImageError(this)"></video>`
+      : `<img src="${photo.url}" alt="${photo.caption}" class="gallery-img" onerror="handleImageError(this)">`;
+
     slide.innerHTML = `
       <div class="gallery-card" data-index="${idx}">
         <div class="image-fallback">
           <i class="fas fa-heart"></i>
           <span>Memory #${idx + 1}</span>
         </div>
-        <img src="${photo.url}" alt="${photo.caption}" class="gallery-img" onerror="handleImageError(this)">
+        ${mediaHtml}
       </div>
     `;
     track.appendChild(slide);
@@ -274,6 +288,37 @@ function createDots() {
 }
 
 // Update Slideshow positions and elements
+// Helper to dynamically render image or video inside slideshow cards
+function renderMediaIntoCard(cardElement, photo) {
+  if (!cardElement) return;
+  cardElement.classList.remove('img-error');
+  
+  const fallback = cardElement.querySelector('.image-fallback');
+  const fallbackHtml = fallback ? fallback.outerHTML : `
+    <div class="image-fallback">
+      <i class="fas fa-heart"></i>
+    </div>
+  `;
+  
+  const glow = cardElement.querySelector('.glow-border');
+  const glowHtml = glow ? glow.outerHTML : '';
+
+  if (photo.videoUrl) {
+    cardElement.innerHTML = `
+      ${fallbackHtml}
+      <video src="${photo.videoUrl}" autoplay loop muted playsinline class="gallery-img" onerror="handleImageError(this)"></video>
+      ${glowHtml}
+    `;
+  } else {
+    cardElement.innerHTML = `
+      ${fallbackHtml}
+      <img src="${photo.url}" alt="${photo.caption}" class="gallery-img" onerror="handleImageError(this)">
+      ${glowHtml}
+    `;
+  }
+}
+
+// Update Slideshow positions and elements
 function updateSlideshow() {
   const len = photosConfig.length;
   const currentPhoto = photosConfig[currentIndex];
@@ -290,23 +335,18 @@ function updateSlideshow() {
   const leftIndex = (currentIndex - 1 + len) % len;
   const rightIndex = (currentIndex + 1) % len;
 
-  // Clear animations momentarily to reset scaling zoom
-  const mainImg = mainCard.querySelector('img');
-  mainImg.classList.remove('ken-burns');
-  
-  // Set images and error resets
-  leftCard.className = 'gallery-card secondary-card left';
-  leftCard.querySelector('img').src = photosConfig[leftIndex].url;
-  
-  mainCard.className = 'gallery-card main-card';
-  mainImg.src = currentPhoto.url;
-  
-  rightCard.className = 'gallery-card secondary-card right';
-  rightCard.querySelector('img').src = photosConfig[rightIndex].url;
+  // Render media components (Image/Video) dynamically
+  renderMediaIntoCard(leftCard, photosConfig[leftIndex]);
+  renderMediaIntoCard(mainCard, currentPhoto);
+  renderMediaIntoCard(rightCard, photosConfig[rightIndex]);
 
-  // Re-trigger Ken Burns animation
-  void mainImg.offsetWidth; // Trigger browser reflow
-  mainImg.classList.add('ken-burns');
+  // Re-trigger Ken Burns animation on the main active card media
+  const mainMedia = mainCard.querySelector('img, video');
+  if (mainMedia) {
+    mainMedia.classList.remove('ken-burns');
+    void mainMedia.offsetWidth; // Trigger browser reflow
+    mainMedia.classList.add('ken-burns');
+  }
 
   // --- MOBILE GALLERY UPDATE ---
   const track = document.getElementById('mobileTrack');
@@ -385,10 +425,33 @@ openMemoryBtn.addEventListener('click', () => {
   pauseSlideshow();
   
   const currentPhoto = photosConfig[currentIndex];
+  const wrapper = document.querySelector('.modal-image-wrapper');
+  
+  const fallback = wrapper.querySelector('.image-fallback');
+  const fallbackHtml = fallback ? fallback.outerHTML : `
+    <div class="image-fallback">
+      <i class="fas fa-heart"></i>
+    </div>
+  `;
+  const glow = wrapper.querySelector('.glow-border');
+  const glowHtml = glow ? glow.outerHTML : '';
+  
+  // Swap img/video tags inside details popup dynamically
+  if (currentPhoto.videoUrl) {
+    wrapper.innerHTML = `
+      ${fallbackHtml}
+      <video id="modalImg" src="${currentPhoto.videoUrl}" autoplay loop muted playsinline onerror="handleImageError(this)"></video>
+      ${glowHtml}
+    `;
+  } else {
+    wrapper.innerHTML = `
+      ${fallbackHtml}
+      <img id="modalImg" src="${currentPhoto.url}" alt="Selected Memory" onerror="handleImageError(this)">
+      ${glowHtml}
+    `;
+  }
   
   // Set modal details
-  modalImg.className = ''; // remove error classes
-  modalImg.src = currentPhoto.url;
   modalBlurBg.style.backgroundImage = `url('${currentPhoto.url}')`;
   
   // Open modal screen
@@ -562,12 +625,17 @@ function buildMemoryWallGrid() {
   photosConfig.forEach((photo, idx) => {
     const card = document.createElement('div');
     card.className = 'wall-card';
+    
+    const mediaHtml = photo.videoUrl
+      ? `<video src="${photo.videoUrl}" autoplay loop muted playsinline onerror="handleImageError(this)"></video>`
+      : `<img src="${photo.url}" alt="${photo.caption}" onerror="handleImageError(this)">`;
+
     card.innerHTML = `
       <div class="image-fallback">
         <i class="fas fa-heart"></i>
         <span>Memory #${idx + 1}</span>
       </div>
-      <img src="${photo.url}" alt="${photo.caption}" onerror="handleImageError(this)">
+      ${mediaHtml}
       <div class="wall-card-overlay">${photo.caption}</div>
     `;
     wall.appendChild(card);
@@ -968,3 +1036,123 @@ function resetToCountdownState() {
     startCountdown();
   }, 1000);
 }
+
+// ==========================================================================
+// 11. DYNAMIC ADMIN EDITORS & THEME HANDLERS
+// ==========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Tab Switch logic
+  const tabActionsBtn = document.getElementById('btn-tab-actions');
+  const tabThemesBtn = document.getElementById('btn-tab-themes');
+  const tabMemoriesBtn = document.getElementById('btn-tab-memories');
+
+  const tabActions = document.getElementById('tab-actions');
+  const tabThemes = document.getElementById('tab-themes');
+  const tabMemories = document.getElementById('tab-memories');
+
+  function switchTab(activeBtn, activeTab) {
+    [tabActionsBtn, tabThemesBtn, tabMemoriesBtn].forEach(btn => btn.classList.remove('active'));
+    [tabActions, tabThemes, tabMemories].forEach(tab => tab.classList.add('hidden'));
+    
+    activeBtn.classList.add('active');
+    activeTab.classList.remove('hidden');
+  }
+
+  if (tabActionsBtn) tabActionsBtn.addEventListener('click', () => switchTab(tabActionsBtn, tabActions));
+  if (tabThemesBtn) tabThemesBtn.addEventListener('click', () => switchTab(tabThemesBtn, tabThemes));
+  
+  if (tabMemoriesBtn) {
+    tabMemoriesBtn.addEventListener('click', () => {
+      switchTab(tabMemoriesBtn, tabMemories);
+      populateMemoriesForm();
+    });
+  }
+
+  // Populate dynamic form elements with active inputs
+  function populateMemoriesForm() {
+    const container = document.getElementById('memoriesFormContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    photosConfig.forEach((photo, idx) => {
+      const slot = document.createElement('div');
+      slot.className = 'memory-slot-editor';
+      slot.innerHTML = `
+        <div class="slot-title">
+          <i class="fas fa-heart"></i> Memory Slot #${idx + 1}
+        </div>
+        <div class="form-group">
+          <label>Photo URL (Local or Web link)</label>
+          <input type="text" class="form-control memory-photo-url" value="${photo.url || ''}" placeholder="assets/photos/photo${idx + 1}.jpg">
+        </div>
+        <div class="form-group">
+          <label>Video URL (Optional MP4 link)</label>
+          <input type="text" class="form-control memory-video-url" value="${photo.videoUrl || ''}" placeholder="e.g. assets/videos/video.mp4">
+        </div>
+        <div class="form-group">
+          <label>Caption</label>
+          <input type="text" class="form-control memory-caption" value="${photo.caption || ''}">
+        </div>
+        <div class="form-group">
+          <label>Detailed Message</label>
+          <textarea class="form-control memory-message" rows="2">${photo.message || ''}</textarea>
+        </div>
+      `;
+      container.appendChild(slot);
+    });
+  }
+
+  // Save Memories array from inputs
+  const saveMemoriesBtn = document.getElementById('saveMemoriesBtn');
+  if (saveMemoriesBtn) {
+    saveMemoriesBtn.addEventListener('click', () => {
+      const photoInputs = document.querySelectorAll('.memory-photo-url');
+      const videoInputs = document.querySelectorAll('.memory-video-url');
+      const captionInputs = document.querySelectorAll('.memory-caption');
+      const messageInputs = document.querySelectorAll('.memory-message');
+      
+      const newConfig = [];
+      for (let i = 0; i < photosConfig.length; i++) {
+        newConfig.push({
+          url: photoInputs[i].value.trim(),
+          videoUrl: videoInputs[i].value.trim(),
+          caption: captionInputs[i].value.trim(),
+          message: messageInputs[i].value.trim()
+        });
+      }
+      
+      photosConfig = newConfig;
+      localStorage.setItem('photosConfig', JSON.stringify(newConfig));
+      
+      // Update displays immediately
+      updateSlideshow();
+      setupMobileCarousel();
+      
+      // Toast notification feedback
+      alert('Memories updated and saved successfully! ❤️');
+    });
+  }
+
+  // Theme selector triggers
+  const themeSelectBtns = document.querySelectorAll('.theme-select-btn');
+  
+  // Set initial active theme button highlight
+  const currentTheme = localStorage.getItem('siteTheme') || 'velvet';
+  themeSelectBtns.forEach(btn => {
+    if (btn.getAttribute('data-theme') === currentTheme) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+    
+    // Bind click events
+    btn.addEventListener('click', () => {
+      themeSelectBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      const selected = btn.getAttribute('data-theme');
+      document.body.className = `theme-${selected}`;
+      localStorage.setItem('siteTheme', selected);
+    });
+  });
+});

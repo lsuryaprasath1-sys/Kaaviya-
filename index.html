@@ -235,14 +235,59 @@
 
       <!-- Admin Controls Panel (Initially Hidden) -->
       <div id="adminControlsSection" class="hidden">
-        <h2 class="admin-modal-title" style="color: var(--color-gold);"><i class="fas fa-user-shield"></i> Control Panel</h2>
-        <p class="admin-modal-subtitle">Welcome back, Admin! What would you like to do?</p>
-        <div class="admin-action-area">
-          <button id="adminTriggerCelebration" class="btn btn-primary" style="width: 100%; justify-content: center; margin-bottom: 15px;">
-            <i class="fas fa-birthday-cake"></i> Trigger Birthday Celebration 🎉
-          </button>
-          <button id="adminResetCountdown" class="btn btn-secondary" style="width: 100%; justify-content: center;">
-            <i class="fas fa-clock"></i> Reset Website & Countdown ⏳
+        <h2 class="admin-modal-title" style="color: var(--color-gold);"><i class="fas fa-user-shield"></i> Admin Panel</h2>
+        
+        <!-- Tab Navigation Buttons -->
+        <div class="admin-tabs">
+          <button class="tab-btn active" id="btn-tab-actions">Controls</button>
+          <button class="tab-btn" id="btn-tab-themes">Themes</button>
+          <button class="tab-btn" id="btn-tab-memories">Memories</button>
+        </div>
+
+        <!-- Tab 1: Actions -->
+        <div id="tab-actions" class="admin-tab-content">
+          <p class="admin-modal-subtitle">Control the active website presentation mode.</p>
+          <div class="admin-action-area">
+            <button id="adminTriggerCelebration" class="btn btn-primary" style="width: 100%; justify-content: center; margin-bottom: 15px;">
+              <i class="fas fa-birthday-cake"></i> Trigger Birthday Celebration 🎉
+            </button>
+            <button id="adminResetCountdown" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+              <i class="fas fa-clock"></i> Reset Website & Countdown ⏳
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Themes -->
+        <div id="tab-themes" class="admin-tab-content hidden">
+          <p class="admin-modal-subtitle">Switch between curated luxury color schemes.</p>
+          <div class="theme-grid">
+            <button class="theme-select-btn active" data-theme="velvet">
+              <span class="theme-color-dot" style="background: linear-gradient(135deg, #1e0915, #ff5277);"></span>
+              Romantic Velvet
+            </button>
+            <button class="theme-select-btn" data-theme="starry">
+              <span class="theme-color-dot" style="background: linear-gradient(135deg, #0b192c, #ffd700);"></span>
+              Starry Gold
+            </button>
+            <button class="theme-select-btn" data-theme="lavender">
+              <span class="theme-color-dot" style="background: linear-gradient(135deg, #2a004e, #e0b0ff);"></span>
+              Sweet Lavender
+            </button>
+            <button class="theme-select-btn" data-theme="ocean">
+              <span class="theme-color-dot" style="background: linear-gradient(135deg, #001f3f, #ff6b6b);"></span>
+              Ocean Coral
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 3: Memories Editor -->
+        <div id="tab-memories" class="admin-tab-content hidden">
+          <p class="admin-modal-subtitle">Update memory assets (images/videos), captions, and details.</p>
+          <div id="memoriesFormContainer" class="memories-form-container">
+            <!-- Dynamically populated memory slots input form -->
+          </div>
+          <button id="saveMemoriesBtn" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 15px;">
+            <span>Save Memories</span> <i class="fas fa-save"></i>
           </button>
         </div>
       </div>
