@@ -64,6 +64,18 @@ export default function AdminPage() {
     setLoginError("");
     setIsLoading(true);
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const isPlaceholder = !supabaseUrl || 
+                          supabaseUrl.includes("placeholder-project-id") || 
+                          supabaseUrl.includes("your-project-id") ||
+                          supabaseUrl === "https://placeholder-project-id.supabase.co";
+
+    if (isPlaceholder) {
+      setLoginError("Supabase is not configured! Please configure your Supabase URL and Anon Key in Vercel settings (Project Settings -> Environment Variables) and redeploy the site. ⚠️");
+      setIsLoading(false);
+      return;
+    }
+
     if (username.trim() === "kaaviya" && password === "26/12") {
       const adminEmail = "kaaviya@birthday.com";
       const adminPassword = "kaaviya_26_12"; // standard compliant password for Supabase Auth policies
@@ -105,7 +117,8 @@ export default function AdminPage() {
           setIsLoggedIn(true);
         }
       } catch (err) {
-        setLoginError("An unexpected authentication error occurred.");
+        console.error("Auth error details:", err);
+        setLoginError("Connection failed (" + err.message + "). This usually means your Supabase URL is incorrect or not reachable. Check your environment variables.");
       }
     } else {
       setLoginError("Invalid username or password! ❌");
