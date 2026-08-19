@@ -50,6 +50,7 @@ export default function Home() {
   
   const [stage, setStage] = useState("intro"); // "intro" | "main" | "celebration"
   const [celebrationStage, setCelebrationStage] = useState(1); // 1: Big Wishes, 2: Memory Wall
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   
@@ -63,9 +64,11 @@ export default function Home() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTypewriterText, setModalTypewriterText] = useState("");
+  const [celebrationMedia, setCelebrationMedia] = useState([]);
   
   // Refs
   const audioRef = useRef(null);
+  const musicOriginalVolumeRef = useRef(1);
   const canvasRef = useRef(null);
   const animationFrameId = useRef(null);
   const particlesContainerRef = useRef(null);
@@ -128,6 +131,107 @@ export default function Home() {
     }
   };
 
+  // Fetch media specifically for the birthday celebration (separate from homepage gallery)
+  const fetchCelebrationMedia = async () => {
+    if (isSupabaseConfigured) {
+      try {
+        // Prefer files explicitly marked for birthday celebration
+        const { data: celebrationFiles, error } = await supabase
+          .from("files")
+          .select("*")
+          .eq("is_birthday_media", true)
+          .order("sort_order", { ascending: true });
+
+        if (celebrationFiles && celebrationFiles.length > 0 && !error) {
+          setCelebrationMedia(celebrationFiles.map(f => ({
+            url: f.public_url,
+            videoUrl: f.file_type === "video" ? f.public_url : "",
+            caption: f.caption || "A special memory ❤️",
+            message: f.caption || "Happy Birthday!"
+          })));
+          return;
+        }
+
+        // Fallback: pick files that are NOT being shown in the homepage gallery
+        const { data: otherFiles } = await supabase
+          .from("files")
+          .select("*")
+          .neq("is_gallery_photo", true)
+          .order("created_at", { ascending: true });
+
+        if (otherFiles && otherFiles.length > 0) {
+          setCelebrationMedia(otherFiles.map(f => ({
+            url: f.public_url,
+            videoUrl: f.file_type === "video" ? f.public_url : "",
+            caption: f.caption || "A special memory ❤️",
+            message: f.caption || "Happy Birthday!"
+          })));
+        }
+      } catch (e) {
+        console.warn("Celebration media fetch failed:", e);
+      }
+    } else {
+      // Local storage fallback
+      try {
+        const all = JSON.parse(localStorage.getItem("khaaviya_local_files") || "[]");
+        const birthday = all.filter(f => f.is_birthday_media);
+        if (birthday.length > 0) {
+          setCelebrationMedia(birthday.map(f => ({
+            url: f.public_url,
+            videoUrl: f.file_type === "video" ? f.public_url : "",
+            caption: f.caption || "A special memory ❤️",
+            message: f.caption || "Happy Birthday!"
+          })));
+          return;
+        }
+
+        const others = all.filter(f => !f.is_gallery_photo);
+        if (others.length > 0) {
+          setCelebrationMedia(others.map(f => ({
+            url: f.public_url,
+            videoUrl: f.file_type === "video" ? f.public_url : "",
+            caption: f.caption || "A special memory ❤️",
+            message: f.caption || "Happy Birthday!"
+          })));
+        }
+      } catch (err) {
+        console.warn("local celebration media read failed:", err);
+      }
+    }
+  };
+
+  // Audio ducking helpers: lower background music when a video plays
+  const duckMusic = (level = 0.18) => {
+    if (!audioRef.current) return;
+    try {
+      musicOriginalVolumeRef.current = typeof audioRef.current.volume === "number" ? audioRef.current.volume : 1;
+      audioRef.current.volume = level;
+    } catch (e) {
+      console.warn("Duck failed:", e);
+    }
+  };
+
+  const restoreMusic = () => {
+    if (!audioRef.current) return;
+    try {
+      audioRef.current.volume = musicOriginalVolumeRef.current ?? 1;
+    } catch (e) {
+      console.warn("Restore volume failed:", e);
+    }
+  };
+
+  const handleVideoPlay = (e) => {
+    // Try to unmute the video (requires user gesture in some browsers)
+    try {
+      if (e && e.target) e.target.muted = false;
+    } catch (err) {}
+    duckMusic();
+  };
+
+  const handleVideoPause = () => {
+    restoreMusic();
+  };
+
   useEffect(() => {
     fetchData();
 
@@ -162,6 +266,46 @@ export default function Home() {
       };
     }
   }, []);
+
+  // Detect admin session (supabase auth or local admin flag)
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && session.user && session.user.email === "kaaviya@birthday.com") {
+            setIsAdminUser(true);
+            return;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      if (typeof window !== "undefined" && localStorage.getItem("khaaviya_admin_session") === "true") {
+        setIsAdminUser(true);
+      }
+    };
+    checkAdmin();
+  }, []);
+
+  const isBirthdayToday = () => {
+    try {
+      const now = new Date();
+      const b = new Date(settings.birthday_date);
+      return now.getMonth() === b.getMonth() && now.getDate() === b.getDate();
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const attemptTriggerCelebration = () => {
+    if (isAdminUser || isBirthdayToday()) {
+      triggerCelebration();
+    } else {
+      // Non-admin viewers cannot trigger the celebration manually
+      console.warn("Celebration trigger is admin-only until the birthday arrives.");
+    }
+  };
 
 
   // Theme variable toggler handler
@@ -313,6 +457,22 @@ export default function Home() {
 
   const closeMemoryModal = () => {
     if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+    // Pause any videos inside the modal and reset playback
+    try {
+      const modal = document.querySelector(".memory-modal");
+      if (modal) {
+        const vids = modal.querySelectorAll("video");
+        vids.forEach(v => {
+          try {
+            v.pause();
+            v.currentTime = 0;
+            v.muted = true;
+          } catch (e) {}
+        });
+      }
+    } catch (err) {}
+
+    restoreMusic();
     setIsModalOpen(false);
     setIsSlideshowPaused(false);
   };
@@ -321,25 +481,41 @@ export default function Home() {
   const triggerCelebration = () => {
     setIsSlideshowPaused(true);
     setStage("celebration");
-    
-    // Upbeat music change on celebration launch
-    if (audioRef.current) {
-      audioRef.current.src = "https://assets.mixkit.co/music/preview/mixkit-bright-future-lullaby-584.mp3";
-      audioRef.current.load();
-      audioRef.current.play().catch(() => {});
-      setIsMusicPlaying(true);
-    }
+    // Fetch celebration-only media (separate from homepage gallery) and then launch celebration
+    fetchCelebrationMedia().then(() => {
+      // Upbeat music change on celebration launch
+      if (audioRef.current) {
+        audioRef.current.src = "https://assets.mixkit.co/music/preview/mixkit-bright-future-lullaby-584.mp3";
+        audioRef.current.load();
+        audioRef.current.play().catch(() => {});
+        setIsMusicPlaying(true);
+      }
 
-    // Launch visual effects loops
-    setTimeout(() => {
-      startCanvasEffects();
-      startBalloonsSpawning();
-    }, 100);
+      // Launch visual effects loops
+      setTimeout(() => {
+        startCanvasEffects();
+        startBalloonsSpawning();
+      }, 100);
 
-    // Stagger transition from big titles (Stage 1) to Memory Wall (Stage 2)
-    setTimeout(() => {
-      setCelebrationStage(2);
-    }, 6000);
+      // Stagger transition from big titles (Stage 1) to Memory Wall (Stage 2)
+      setTimeout(() => {
+        setCelebrationStage(2);
+      }, 6000);
+    }).catch((e) => {
+      console.warn("Failed to load celebration media:", e);
+      // proceed with default celebration visuals
+      if (audioRef.current) {
+        audioRef.current.src = "https://assets.mixkit.co/music/preview/mixkit-bright-future-lullaby-584.mp3";
+        audioRef.current.load();
+        audioRef.current.play().catch(() => {});
+        setIsMusicPlaying(true);
+      }
+      setTimeout(() => {
+        startCanvasEffects();
+        startBalloonsSpawning();
+      }, 100);
+      setTimeout(() => setCelebrationStage(2), 6000);
+    });
   };
 
   // 9. Floating Balloons Generator inside celebration
@@ -580,13 +756,16 @@ export default function Home() {
   const getMediaElement = (photo, isMain = false) => {
     if (photo.videoUrl) {
       return (
-        <video 
-          src={photo.videoUrl} 
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
+        <video
+          src={photo.videoUrl}
+          autoPlay
+          loop
+          controls
+          playsInline
           className={`gallery-img ${isMain ? "ken-burns" : ""}`}
+          onPlay={handleVideoPlay}
+          onPause={handleVideoPause}
+          onEnded={handleVideoPause}
           onError={handleImgError}
         />
       );
@@ -762,7 +941,11 @@ export default function Home() {
 
           {/* Footer secret trigger */}
           <footer className="main-footer">
-            <p>Made with love for Khaaviya &bull; <span className="secret-trigger" onClick={triggerCelebration}><i className="fas fa-heart-pulse"></i></span></p>
+            <p>Made with love for Khaaviya &bull; { (isAdminUser || isBirthdayToday()) ? (
+              <span className="secret-trigger" onClick={attemptTriggerCelebration}><i className="fas fa-heart-pulse"></i></span>
+            ) : (
+              <span className="secret-trigger disabled" title="Birthday trigger is admin-only until the birthday"></span>
+            ) }</p>
           </footer>
         </main>
       )}
@@ -789,7 +972,7 @@ export default function Home() {
                 <h2 className="stage-title">Your Memories, Today & Always</h2>
                 
                 <div className="memory-wall">
-                  {memories.map((photo, idx) => (
+                  {(celebrationMedia.length > 0 ? celebrationMedia : memories).map((photo, idx) => (
                     <div 
                       key={idx} 
                       className="wall-card fade-in"
@@ -797,7 +980,17 @@ export default function Home() {
                     >
                       <div className="image-fallback"><i className="fas fa-heart"></i></div>
                       {photo.videoUrl ? (
-                        <video src={photo.videoUrl} autoPlay loop muted playsinline onError={handleImgError} />
+                        <video
+                          src={photo.videoUrl}
+                          autoPlay
+                          loop
+                          controls
+                          playsInline
+                          onPlay={handleVideoPlay}
+                          onPause={handleVideoPause}
+                          onEnded={handleVideoPause}
+                          onError={handleImgError}
+                        />
                       ) : (
                         <img src={photo.url} alt={photo.caption} onError={handleImgError} />
                       )}
@@ -829,7 +1022,17 @@ export default function Home() {
             <div className="modal-image-wrapper">
               <div className="image-fallback"><i className="fas fa-heart"></i></div>
               {memories[currentIndex].videoUrl ? (
-                <video src={memories[currentIndex].videoUrl} autoPlay loop muted playsinline onError={handleImgError} />
+                <video
+                  src={memories[currentIndex].videoUrl}
+                  autoPlay
+                  loop
+                  controls
+                  playsInline
+                  onPlay={handleVideoPlay}
+                  onPause={handleVideoPause}
+                  onEnded={handleVideoPause}
+                  onError={handleImgError}
+                />
               ) : (
                 <img src={memories[currentIndex].url} alt="Active Memory" onError={handleImgError} />
               )}

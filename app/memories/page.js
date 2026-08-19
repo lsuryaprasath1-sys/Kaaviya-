@@ -380,6 +380,18 @@ export default function MemoriesPage() {
     }
   };
 
+  // Toggle birthday-only media flag (admin only)
+  const handleToggleBirthdayMedia = async (file) => {
+    if (!isAdmin) return;
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("files").update({ is_birthday_media: !file.is_birthday_media }).eq("id", file.id);
+      if (!error) fetchContents();
+    } else {
+      saveLocalFiles(getLocalFiles().map(f => f.id === file.id ? { ...f, is_birthday_media: !f.is_birthday_media } : f));
+      fetchContents();
+    }
+  };
+
   // Format Helper
   const formatBytes = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -687,6 +699,15 @@ export default function MemoriesPage() {
                       />
                       Slideshow photo
                     </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", cursor: "pointer", color: "var(--color-romantic-light)" }}>
+                      <input
+                        type="checkbox"
+                        checked={!!file.is_birthday_media}
+                        onChange={() => handleToggleBirthdayMedia(file)}
+                        style={{ width: "12px", height: "12px" }}
+                      />
+                      Birthday media
+                    </label>
                     <button 
                       className="btn btn-secondary" 
                       onClick={() => triggerModal("edit_caption", file)} 
@@ -761,6 +782,11 @@ export default function MemoriesPage() {
                         style={{ color: "var(--color-romantic)", marginRight: "10px" }}
                       />
                       {file.name}
+                      {file.is_birthday_media && (
+                        <span style={{ marginLeft: 8, fontSize: "0.72rem", color: "#ffd700", padding: "2px 6px", borderRadius: 6, background: "rgba(255,215,0,0.06)" }} title="Birthday media">
+                          🎂
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: "12px 15px", color: "rgba(255,255,255,0.5)" }}>{file.file_type.toUpperCase()}</td>
                     <td style={{ padding: "12px 15px", color: "rgba(255,255,255,0.5)" }}>{formatBytes(file.file_size)}</td>
