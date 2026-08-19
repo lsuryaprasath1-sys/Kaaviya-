@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 // Local static fallbacks in case Supabase is not yet configured or tables are empty
 const defaultPhotosConfig = [
@@ -74,65 +74,95 @@ export default function Home() {
   
   const slideDuration = 4500; // 4.5s slide
 
-  // 1. Fetch Birthday settings & files from Supabase
+  // 1. Fetch Birthday settings & files (Supabase or localStorage fallback)
   const fetchData = async () => {
-    try {
-      // Fetch settings
-      const { data: dbSettings, error: settingsError } = await supabase
-        .from("birthday_settings")
-        .select("*")
-        .single();
-      
-      if (dbSettings && !settingsError) {
-        setSettings(dbSettings);
+    const LOCAL_SETTINGS_KEY = "khaaviya_birthday_settings";
+    const LOCAL_FILES_KEY    = "khaaviya_local_files";
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data: dbSettings, error: settingsError } = await supabase
+          .from("birthday_settings")
+          .select("*")
+          .single();
+        if (dbSettings && !settingsError) setSettings(dbSettings);
+
+        const { data: dbFiles, error: filesError } = await supabase
+          .from("files")
+          .select("*")
+          .eq("is_gallery_photo", true)
+          .order("sort_order", { ascending: true });
+        if (dbFiles && dbFiles.length > 0 && !filesError) {
+          setMemories(dbFiles.map(file => ({
+            url:      file.public_url,
+            videoUrl: file.file_type === "video" ? file.public_url : "",
+            caption:  file.caption || "A beautiful memory ❤️",
+            message:  file.caption || "Every moment shared with you is a memory I keep close to my heart. ❤️"
+          })));
+        }
+      } catch (e) {
+        console.warn("Database fetch failed. Using local fallbacks.", e);
       }
-      
-      // Fetch files designated for the gallery slideshow
-      const { data: dbFiles, error: filesError } = await supabase
-        .from("files")
-        .select("*")
-        .eq("is_gallery_photo", true)
-        .order("sort_order", { ascending: true });
-        
-      if (dbFiles && dbFiles.length > 0 && !filesError) {
-        const formattedMemories = dbFiles.map(file => ({
-          url: file.public_url,
-          videoUrl: file.file_type === "video" ? file.public_url : "",
-          caption: file.caption || "A beautiful memory ❤️",
-          message: file.caption || "Every moment shared with you is a memory I keep close to my heart. ❤️"
-        }));
-        setMemories(formattedMemories);
+    } else {
+      // ── Local-storage offline mode ──
+      try {
+        const storedSettings = localStorage.getItem(LOCAL_SETTINGS_KEY);
+        if (storedSettings) setSettings(JSON.parse(storedSettings));
+
+        const storedFiles = localStorage.getItem(LOCAL_FILES_KEY);
+        if (storedFiles) {
+          const parsed = JSON.parse(storedFiles);
+          const gallery = parsed.filter(f => f.is_gallery_photo);
+          if (gallery.length > 0) {
+            setMemories(gallery.map(f => ({
+              url:      f.public_url,
+              videoUrl: f.file_type === "video" ? f.public_url : "",
+              caption:  f.caption || "A beautiful memory ❤️",
+              message:  f.caption || "Every moment shared with you is a memory I keep close to my heart. ❤️"
+            })));
+          }
+        }
+      } catch (e) {
+        console.warn("localStorage read failed:", e);
       }
-    } catch (e) {
-      console.warn("Database fetch failed or not yet initialized. Using local fallbacks.", e);
     }
   };
 
   useEffect(() => {
     fetchData();
 
-    // 2. Realtime Subscriptions setup
-    const settingsSubscription = supabase
-      .channel("public:birthday_settings")
-      .on("postgres_changes", { event: "*", schema: "public", table: "birthday_settings" }, (payload) => {
-        if (payload.new) {
-          setSettings(prev => ({ ...prev, ...payload.new }));
-        }
-      })
-      .subscribe();
+    if (isSupabaseConfigured) {
+      // 2. Realtime Subscriptions setup (Supabase only)
+      const settingsSubscription = supabase
+        .channel("public:birthday_settings")
+        .on("postgres_changes", { event: "*", schema: "public", table: "birthday_settings" }, (payload) => {
+          if (payload.new) setSettings(prev => ({ ...prev, ...payload.new }));
+        })
+        .subscribe();
 
-    const filesSubscription = supabase
-      .channel("public:files")
-      .on("postgres_changes", { event: "*", schema: "public", table: "files" }, () => {
-        fetchData(); // Refetch database files when additions/deletions occur
-      })
-      .subscribe();
+      const filesSubscription = supabase
+        .channel("public:files")
+        .on("postgres_changes", { event: "*", schema: "public", table: "files" }, () => {
+          fetchData();
+        })
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(settingsSubscription);
-      supabase.removeChannel(filesSubscription);
-    };
+      return () => {
+        supabase.removeChannel(settingsSubscription);
+        supabase.removeChannel(filesSubscription);
+      };
+    } else {
+      // Listen for local-storage updates dispatched by admin/memories pages
+      const onSettingsUpdate = () => fetchData();
+      window.addEventListener("khaaviya_settings_update", onSettingsUpdate);
+      window.addEventListener("khaaviya_files_update",    onSettingsUpdate);
+      return () => {
+        window.removeEventListener("khaaviya_settings_update", onSettingsUpdate);
+        window.removeEventListener("khaaviya_files_update",    onSettingsUpdate);
+      };
+    }
   }, []);
+
 
   // Theme variable toggler handler
   useEffect(() => {

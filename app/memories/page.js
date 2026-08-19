@@ -2,7 +2,20 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+
+const LOCAL_FILES_KEY   = "khaaviya_local_files";
+const LOCAL_FOLDERS_KEY = "khaaviya_local_folders";
+const LOCAL_SESSION_KEY = "khaaviya_admin_session";
+
+// Unique ID generator for local records
+const genId = () => "local_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now();
+
+// Persist local files/folders and notify the home page
+const saveLocalFiles   = (files)   => { localStorage.setItem(LOCAL_FILES_KEY,   JSON.stringify(files));   window.dispatchEvent(new Event("khaaviya_files_update")); };
+const saveLocalFolders = (folders) => { localStorage.setItem(LOCAL_FOLDERS_KEY, JSON.stringify(folders)); };
+const getLocalFiles    = ()        => { try { return JSON.parse(localStorage.getItem(LOCAL_FILES_KEY)   || "[]"); } catch { return []; } };
+const getLocalFolders  = ()        => { try { return JSON.parse(localStorage.getItem(LOCAL_FOLDERS_KEY) || "[]"); } catch { return []; } };
 
 export default function MemoriesPage() {
   // Authentication & View states
@@ -37,11 +50,18 @@ export default function MemoriesPage() {
   
   const fileInputRef = useRef(null);
 
-  // Authenticate session
+  // Authenticate session (Supabase or local-storage fallback)
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user.email === "kaaviya@birthday.com") {
+      if (isSupabaseConfigured) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user.email === "kaaviya@birthday.com") {
+          setIsAdmin(true);
+          return;
+        }
+      }
+      // Offline fallback: check localStorage session flag
+      if (typeof window !== "undefined" && localStorage.getItem(LOCAL_SESSION_KEY) === "true") {
         setIsAdmin(true);
       }
     };
@@ -56,81 +76,83 @@ export default function MemoriesPage() {
   }, [currentFolderId, searchQuery, sortBy, sortOrder]);
 
   const fetchContents = async () => {
-    try {
-      // 1. Fetch Subfolders
-      let folderQuery = supabase
-        .from("folders")
-        .select("*");
-      
-      if (currentFolderId) {
-        folderQuery = folderQuery.eq("parent_id", currentFolderId);
-      } else {
-        folderQuery = folderQuery.is("parent_id", null);
+    if (isSupabaseConfigured) {
+      try {
+        let folderQuery = supabase.from("folders").select("*");
+        folderQuery = currentFolderId ? folderQuery.eq("parent_id", currentFolderId) : folderQuery.is("parent_id", null);
+        const { data: dbFolders, error: foldersErr } = await folderQuery;
+        if (!foldersErr) setFolders(dbFolders || []);
+
+        let fileQuery = supabase.from("files").select("*");
+        fileQuery = currentFolderId ? fileQuery.eq("folder_id", currentFolderId) : fileQuery.is("folder_id", null);
+        if (searchQuery) fileQuery = fileQuery.ilike("name", `%${searchQuery}%`);
+        fileQuery = fileQuery.order(sortBy, { ascending: sortOrder === "asc" });
+        const { data: dbFiles, error: filesErr } = await fileQuery;
+        if (!filesErr) setFiles(dbFiles || []);
+      } catch (err) {
+        console.error("Error fetching contents from Supabase:", err);
       }
-      
-      const { data: dbFolders, error: foldersErr } = await folderQuery;
-      if (!foldersErr) setFolders(dbFolders || []);
+    } else {
+      // ── Local-storage mode ──
+      const allFoldersLocal = getLocalFolders();
+      const allFilesLocal   = getLocalFiles();
 
-      // 2. Fetch Files
-      let fileQuery = supabase
-        .from("files")
-        .select("*");
+      const filteredFolders = allFoldersLocal.filter(f =>
+        currentFolderId ? f.parent_id === currentFolderId : !f.parent_id
+      );
+      setFolders(filteredFolders);
 
-      if (currentFolderId) {
-        fileQuery = fileQuery.eq("folder_id", currentFolderId);
-      } else {
-        fileQuery = fileQuery.is("folder_id", null);
-      }
-
-      // Add Search filter
+      let filteredFiles = allFilesLocal.filter(f =>
+        currentFolderId ? f.folder_id === currentFolderId : !f.folder_id
+      );
       if (searchQuery) {
-        fileQuery = fileQuery.ilike("name", `%${searchQuery}%`);
+        filteredFiles = filteredFiles.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
       }
-
-      // Add Sorting
-      fileQuery = fileQuery.order(sortBy, { ascending: sortOrder === "asc" });
-
-      const { data: dbFiles, error: filesErr } = await fileQuery;
-      if (!filesErr) setFiles(dbFiles || []);
-    } catch (err) {
-      console.error("Error fetching contents from Supabase:", err);
+      filteredFiles.sort((a, b) => {
+        const aVal = a[sortBy] || "";
+        const bVal = b[sortBy] || "";
+        return sortOrder === "asc" ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+      });
+      setFiles(filteredFiles);
     }
   };
 
   const fetchFolderTrail = async () => {
-    if (!currentFolderId) {
-      setFolderPath([]);
-      return;
-    }
-    
-    try {
+    if (!currentFolderId) { setFolderPath([]); return; }
+
+    if (isSupabaseConfigured) {
+      try {
+        let trail = [];
+        let nextId = currentFolderId;
+        while (nextId) {
+          const { data, error } = await supabase.from("folders").select("id, name, parent_id").eq("id", nextId).single();
+          if (data && !error) { trail.unshift({ id: data.id, name: data.name }); nextId = data.parent_id; }
+          else nextId = null;
+        }
+        setFolderPath(trail);
+      } catch (err) { console.error("Error loading folder path trail:", err); }
+    } else {
+      const allFoldersLocal = getLocalFolders();
       let trail = [];
       let nextId = currentFolderId;
-      
       while (nextId) {
-        const { data, error } = await supabase
-          .from("folders")
-          .select("id, name, parent_id")
-          .eq("id", nextId)
-          .single();
-          
-        if (data && !error) {
-          trail.unshift({ id: data.id, name: data.name });
-          nextId = data.parent_id;
-        } else {
-          nextId = null;
-        }
+        const found = allFoldersLocal.find(f => f.id === nextId);
+        if (found) { trail.unshift({ id: found.id, name: found.name }); nextId = found.parent_id; }
+        else nextId = null;
       }
       setFolderPath(trail);
-    } catch (err) {
-      console.error("Error loading folder path trail:", err);
     }
   };
 
   const fetchAllFoldersList = async () => {
-    const { data } = await supabase.from("folders").select("id, name");
-    setAllFolders(data || []);
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from("folders").select("id, name");
+      setAllFolders(data || []);
+    } else {
+      setAllFolders(getLocalFolders().map(f => ({ id: f.id, name: f.name })));
+    }
   };
+
 
   // Navigate folder trail
   const navigateToFolder = (id) => {
@@ -172,73 +194,61 @@ export default function MemoriesPage() {
     if (!isAdmin) return;
     setUploadStatusMsg("");
     const filesArray = Array.from(fileList);
-    
-    // Set initial uploads queues in UI
     const newQueue = filesArray.map(f => ({ name: f.name, progress: 0, status: "Uploading..." }));
     setUploadQueue(prev => [...prev, ...newQueue]);
 
     for (let i = 0; i < filesArray.length; i++) {
       const file = filesArray[i];
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
-      const storagePath = `memories_${Date.now()}_${sanitizedName}`;
-      
-      // Determine overall category
       let fileType = "document";
       if (file.type.startsWith("image/")) fileType = "image";
       else if (file.type.startsWith("video/")) fileType = "video";
 
-      try {
-        // 1. Upload to Supabase Storage Bucket
-        const { data: storageData, error: storageErr } = await supabase.storage
-          .from("memories")
-          .upload(storagePath, file, {
-            cacheControl: "3600",
-            upsert: false
+      if (isSupabaseConfigured) {
+        // ── Supabase upload ──
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+        const storagePath = `memories_${Date.now()}_${sanitizedName}`;
+        try {
+          const { error: storageErr } = await supabase.storage.from("memories").upload(storagePath, file, { cacheControl: "3600", upsert: false });
+          if (storageErr) throw storageErr;
+          const { data: urlData } = supabase.storage.from("memories").getPublicUrl(storagePath);
+          const { error: dbErr } = await supabase.from("files").insert({
+            name: file.name, storage_path: storagePath, public_url: urlData.publicUrl,
+            file_type: fileType, mime_type: file.type, file_size: file.size,
+            folder_id: currentFolderId, is_gallery_photo: fileType === "image" || fileType === "video"
           });
-
-        if (storageErr) throw storageErr;
-
-        // 2. Fetch Public URL
-        const { data: urlData } = supabase.storage
-          .from("memories")
-          .getPublicUrl(storagePath);
-          
-        const publicUrl = urlData.publicUrl;
-
-        // 3. Save metadata into SQL Database
-        const { error: dbErr } = await supabase
-          .from("files")
-          .insert({
-            name: file.name,
-            storage_path: storagePath,
-            public_url: publicUrl,
-            file_type: fileType,
-            mime_type: file.type,
-            file_size: file.size,
-            folder_id: currentFolderId,
-            is_gallery_photo: fileType === "image" || fileType === "video" // auto enable gallery checkbox for images/videos
+          if (dbErr) throw dbErr;
+          setUploadQueue(prev => prev.map(item => item.name === file.name ? { ...item, progress: 100, status: "Complete" } : item));
+        } catch (err) {
+          console.error("Upload error:", err);
+          setUploadQueue(prev => prev.map(item => item.name === file.name ? { ...item, progress: 0, status: "Failed: " + err.message } : item));
+        }
+      } else {
+        // ── Local-storage upload: read as base64 data URL ──
+        try {
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload  = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
           });
-
-        if (dbErr) throw dbErr;
-
-        // Update queue item progress
-        setUploadQueue(prev => prev.map(item => 
-          item.name === file.name ? { ...item, progress: 100, status: "Complete" } : item
-        ));
-      } catch (err) {
-        console.error("Upload error details:", err);
-        setUploadQueue(prev => prev.map(item => 
-          item.name === file.name ? { ...item, progress: 0, status: "Failed: " + err.message } : item
-        ));
+          const newFile = {
+            id: genId(), name: file.name, storage_path: "", public_url: dataUrl,
+            file_type: fileType, mime_type: file.type, file_size: file.size,
+            folder_id: currentFolderId || null, is_gallery_photo: fileType === "image" || fileType === "video",
+            caption: "", created_at: new Date().toISOString(), sort_order: 0
+          };
+          const allFiles = getLocalFiles();
+          saveLocalFiles([...allFiles, newFile]);
+          setUploadQueue(prev => prev.map(item => item.name === file.name ? { ...item, progress: 100, status: "Complete" } : item));
+        } catch (err) {
+          setUploadQueue(prev => prev.map(item => item.name === file.name ? { ...item, progress: 0, status: "Failed: " + err.message } : item));
+        }
       }
     }
 
     setUploadStatusMsg("Uploaded successfully ❤️");
     fetchContents();
-    setTimeout(() => {
-      setUploadQueue([]);
-      setUploadStatusMsg("");
-    }, 4000);
+    setTimeout(() => { setUploadQueue([]); setUploadStatusMsg(""); }, 4000);
   };
 
   // ==========================================================================
@@ -260,135 +270,114 @@ export default function MemoriesPage() {
     e.preventDefault();
     if (!isAdmin) return;
 
-    try {
+    if (isSupabaseConfigured) {
+      try {
+        if (activeModal === "new_folder") {
+          const { error } = await supabase.from("folders").insert({ name: modalInputValue, parent_id: currentFolderId });
+          if (error) throw error;
+        } else if (activeModal === "rename_folder") {
+          const { error } = await supabase.from("folders").update({ name: modalInputValue }).eq("id", modalTarget.id);
+          if (error) throw error;
+        } else if (activeModal === "rename_file") {
+          const { error } = await supabase.from("files").update({ name: modalInputValue }).eq("id", modalTarget.id);
+          if (error) throw error;
+        } else if (activeModal === "edit_caption") {
+          const { error } = await supabase.from("files").update({ caption: modalInputValue }).eq("id", modalTarget.id);
+          if (error) throw error;
+        } else if (activeModal === "move_files") {
+          const targetFolder = modalInputValue === "root" ? null : modalInputValue;
+          const targetIds = modalTarget ? [modalTarget.id] : selectedFileIds;
+          const { error } = await supabase.from("files").update({ folder_id: targetFolder }).in("id", targetIds);
+          if (error) throw error;
+          setSelectedFileIds([]);
+        }
+      } catch (err) {
+        alert("Operation failed: " + err.message);
+        return;
+      }
+    } else {
+      // ── Local-storage mode ──
       if (activeModal === "new_folder") {
-        const { error } = await supabase
-          .from("folders")
-          .insert({
-            name: modalInputValue,
-            parent_id: currentFolderId
-          });
-        if (error) throw error;
-      } 
-      else if (activeModal === "rename_folder") {
-        const { error } = await supabase
-          .from("folders")
-          .update({ name: modalInputValue })
-          .eq("id", modalTarget.id);
-        if (error) throw error;
-      } 
-      else if (activeModal === "rename_file") {
-        const { error } = await supabase
-          .from("files")
-          .update({ name: modalInputValue })
-          .eq("id", modalTarget.id);
-        if (error) throw error;
-      }
-      else if (activeModal === "edit_caption") {
-        const { error } = await supabase
-          .from("files")
-          .update({ caption: modalInputValue })
-          .eq("id", modalTarget.id);
-        if (error) throw error;
-      }
-      else if (activeModal === "move_files") {
+        const allFolders = getLocalFolders();
+        saveLocalFolders([...allFolders, { id: genId(), name: modalInputValue, parent_id: currentFolderId || null }]);
+      } else if (activeModal === "rename_folder") {
+        saveLocalFolders(getLocalFolders().map(f => f.id === modalTarget.id ? { ...f, name: modalInputValue } : f));
+      } else if (activeModal === "rename_file") {
+        saveLocalFiles(getLocalFiles().map(f => f.id === modalTarget.id ? { ...f, name: modalInputValue } : f));
+      } else if (activeModal === "edit_caption") {
+        saveLocalFiles(getLocalFiles().map(f => f.id === modalTarget.id ? { ...f, caption: modalInputValue } : f));
+      } else if (activeModal === "move_files") {
         const targetFolder = modalInputValue === "root" ? null : modalInputValue;
         const targetIds = modalTarget ? [modalTarget.id] : selectedFileIds;
-        
-        const { error } = await supabase
-          .from("files")
-          .update({ folder_id: targetFolder })
-          .in("id", targetIds);
-        if (error) throw error;
+        saveLocalFiles(getLocalFiles().map(f => targetIds.includes(f.id) ? { ...f, folder_id: targetFolder } : f));
         setSelectedFileIds([]);
       }
-
-      fetchContents();
-      setActiveModal(null);
-    } catch (err) {
-      alert("Operation failed: " + err.message);
     }
+
+    fetchContents();
+    setActiveModal(null);
   };
 
   const handleDeleteFolder = async (folder) => {
     if (!isAdmin) return;
     if (!confirm(`Are you sure you want to delete folder "${folder.name}"? All nested contents will be removed.`)) return;
-
-    const { error } = await supabase
-      .from("folders")
-      .delete()
-      .eq("id", folder.id);
-      
-    if (!error) fetchContents();
-    else alert("Delete failed: " + error.message);
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("folders").delete().eq("id", folder.id);
+      if (!error) fetchContents();
+      else alert("Delete failed: " + error.message);
+    } else {
+      saveLocalFolders(getLocalFolders().filter(f => f.id !== folder.id));
+      saveLocalFiles(getLocalFiles().filter(f => f.folder_id !== folder.id));
+      fetchContents();
+    }
   };
 
   const handleDeleteFile = async (file) => {
     if (!isAdmin) return;
     if (!confirm(`Are you sure you want to delete file "${file.name}"?`)) return;
-
-    try {
-      // 1. Delete from Supabase Storage
-      const { error: storageErr } = await supabase.storage
-        .from("memories")
-        .remove([file.storage_path]);
-        
-      // 2. Delete from database
-      const { error: dbErr } = await supabase
-        .from("files")
-        .delete()
-        .eq("id", file.id);
-        
-      if (!dbErr) fetchContents();
-      else alert("Delete failed: " + dbErr.message);
-    } catch (err) {
-      alert("Delete failed: " + err.message);
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.storage.from("memories").remove([file.storage_path]);
+        const { error: dbErr } = await supabase.from("files").delete().eq("id", file.id);
+        if (!dbErr) fetchContents();
+        else alert("Delete failed: " + dbErr.message);
+      } catch (err) { alert("Delete failed: " + err.message); }
+    } else {
+      saveLocalFiles(getLocalFiles().filter(f => f.id !== file.id));
+      fetchContents();
     }
   };
 
   const handleBulkDelete = async () => {
     if (!isAdmin || selectedFileIds.length === 0) return;
     if (!confirm(`Are you sure you want to delete the ${selectedFileIds.length} selected files?`)) return;
-
-    try {
-      // Retrieve files list to delete from storage
-      const { data: filesToDelete } = await supabase
-        .from("files")
-        .select("storage_path")
-        .in("id", selectedFileIds);
-
-      if (filesToDelete && filesToDelete.length > 0) {
-        const paths = filesToDelete.map(f => f.storage_path);
-        await supabase.storage.from("memories").remove(paths);
-      }
-
-      const { error } = await supabase
-        .from("files")
-        .delete()
-        .in("id", selectedFileIds);
-
-      if (!error) {
-        setSelectedFileIds([]);
-        fetchContents();
-      } else {
-        alert("Bulk delete failed: " + error.message);
-      }
-    } catch (err) {
-      alert("Bulk delete error: " + err.message);
+    if (isSupabaseConfigured) {
+      try {
+        const { data: filesToDelete } = await supabase.from("files").select("storage_path").in("id", selectedFileIds);
+        if (filesToDelete && filesToDelete.length > 0) {
+          await supabase.storage.from("memories").remove(filesToDelete.map(f => f.storage_path));
+        }
+        const { error } = await supabase.from("files").delete().in("id", selectedFileIds);
+        if (!error) { setSelectedFileIds([]); fetchContents(); }
+        else alert("Bulk delete failed: " + error.message);
+      } catch (err) { alert("Bulk delete error: " + err.message); }
+    } else {
+      saveLocalFiles(getLocalFiles().filter(f => !selectedFileIds.includes(f.id)));
+      setSelectedFileIds([]);
+      fetchContents();
     }
   };
 
   // Toggle homepage gallery inclusion status
   const handleToggleGallery = async (file, field) => {
     if (!isAdmin) return;
-    const currentVal = file[field];
-    
-    const { error } = await supabase
-      .from("files")
-      .update({ [field]: !currentVal })
-      .eq("id", file.id);
-
-    if (!error) fetchContents();
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("files").update({ [field]: !file[field] }).eq("id", file.id);
+      if (!error) fetchContents();
+    } else {
+      saveLocalFiles(getLocalFiles().map(f => f.id === file.id ? { ...f, [field]: !f[field] } : f));
+      fetchContents();
+    }
   };
 
   // Format Helper
