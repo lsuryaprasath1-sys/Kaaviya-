@@ -41,6 +41,7 @@ export default function MemoriesPage() {
   const [uploadQueue, setUploadQueue] = useState([]); // Array of {name, progress, status}
   const [dragActive, setDragActive] = useState(false);
   const [uploadStatusMsg, setUploadStatusMsg] = useState("");
+  const [uploadCaption, setUploadCaption] = useState("");
   
   // Form states (Rename, New folder, edit caption)
   const [activeModal, setActiveModal] = useState(null); // null | "new_folder" | "rename_file" | "rename_folder" | "move_files" | "edit_caption"
@@ -214,7 +215,8 @@ export default function MemoriesPage() {
           const { error: dbErr } = await supabase.from("files").insert({
             name: file.name, storage_path: storagePath, public_url: urlData.publicUrl,
             file_type: fileType, mime_type: file.type, file_size: file.size,
-            folder_id: currentFolderId, is_gallery_photo: fileType === "image" || fileType === "video"
+            folder_id: currentFolderId, is_gallery_photo: fileType === "image" || fileType === "video",
+            caption: uploadCaption || ""
           });
           if (dbErr) throw dbErr;
           setUploadQueue(prev => prev.map(item => item.name === file.name ? { ...item, progress: 100, status: "Complete" } : item));
@@ -235,7 +237,7 @@ export default function MemoriesPage() {
             id: genId(), name: file.name, storage_path: "", public_url: dataUrl,
             file_type: fileType, mime_type: file.type, file_size: file.size,
             folder_id: currentFolderId || null, is_gallery_photo: fileType === "image" || fileType === "video",
-            caption: "", created_at: new Date().toISOString(), sort_order: 0
+            caption: uploadCaption || "", created_at: new Date().toISOString(), sort_order: 0
           };
           const allFiles = getLocalFiles();
           saveLocalFiles([...allFiles, newFile]);
@@ -248,7 +250,7 @@ export default function MemoriesPage() {
 
     setUploadStatusMsg("Uploaded successfully ❤️");
     fetchContents();
-    setTimeout(() => { setUploadQueue([]); setUploadStatusMsg(""); }, 4000);
+    setTimeout(() => { setUploadQueue([]); setUploadStatusMsg(""); setUploadCaption(""); }, 4000);
   };
 
   // ==========================================================================
@@ -474,6 +476,15 @@ export default function MemoriesPage() {
             <i className="fas fa-cloud-upload-alt" style={{ fontSize: "3rem", color: "var(--color-romantic)", marginBottom: "15px" }}></i>
             <h3 style={{ fontSize: "1.2rem", fontWeight: "600", marginBottom: "5px" }}>Drop your memories here</h3>
             <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)" }}>Photos, Videos & PDFs • Upload multiple files simultaneously</p>
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 8, alignItems: "center" }}>
+              <input
+                type="text"
+                placeholder="Caption for uploads (optional)"
+                value={uploadCaption}
+                onChange={e => setUploadCaption(e.target.value)}
+                style={{ width: "60%", padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.12)", color: "#fff" }}
+              />
+            </div>
             {uploadStatusMsg && <p style={{ color: "var(--color-romantic)", fontWeight: "bold", marginTop: "15px" }}>{uploadStatusMsg}</p>}
           </div>
         )}
