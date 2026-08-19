@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [isLoading,  setIsLoading]    = useState(false);
   const [settings,   setSettings]     = useState(defaultSettings);
   const [saveStatus, setSaveStatus]   = useState("");
+  const [backups, setBackups]         = useState([]);
 
   // ── Session restore ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -47,6 +48,11 @@ export default function AdminPage() {
       }
     };
     restoreSession();
+  }, []);
+
+  // Load restore points on mount
+  useEffect(() => {
+    fetchBackups();
   }, []);
 
   // ── Fetch settings ───────────────────────────────────────────────────────────
@@ -76,6 +82,82 @@ export default function AdminPage() {
       }
     }
   };
+
+  // ── RESTORE POINTS (Backups) ───────────────────────────────────────────────
+  const LOCAL_BACKUPS_KEY = "khaaviya_settings_backups";
+
+  const fetchBackups = async () => {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from("settings_backups").select("id, settings, created_at").order("created_at", { ascending: false }).limit(20);
+        if (!error && data) {
+          setBackups(data.map(d => ({ id: d.id, settings: d.settings, created_at: d.created_at })));
+          return;
+        }
+      } catch (e) {
+        console.warn("Failed to fetch backups from Supabase, falling back to localStorage", e);
+      }
+    }
+    // Local fallback
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(LOCAL_BACKUPS_KEY) || "[]";
+        const arr = JSON.parse(raw);
+        setBackups(arr.reverse());
+      } catch (e) { setBackups([]); }
+    }
+  };
+
+  const createRestorePoint = async (existingSettings = null) => {
+    // Capture the current settings as a backup
+    try {
+      let current = existingSettings;
+      if (!current) {
+        if (isSupabaseConfigured) {
+          const { data } = await supabase.from("birthday_settings").select("*").single();
+          current = data || settings;
+        } else {
+          current = settings;
+        }
+      }
+
+      if (isSupabaseConfigured) {
+        try {
+          const { error } = await supabase.from("settings_backups").insert({ settings: current, created_at: new Date().toISOString() });
+          if (error) throw error;
+          await fetchBackups();
+          return;
+        } catch (e) {
+          console.warn("Could not save backup to Supabase, will store locally", e);
+        }
+      }
+
+      // Local fallback store
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem(LOCAL_BACKUPS_KEY) || "[]";
+        const arr = JSON.parse(raw);
+        arr.push({ id: Date.now(), settings: current, created_at: new Date().toISOString() });
+        localStorage.setItem(LOCAL_BACKUPS_KEY, JSON.stringify(arr));
+        await fetchBackups();
+      }
+    } catch (err) {
+      console.error("Create restore point failed:", err);
+    }
+  };
+
+  const restoreBackup = async (backup) => {
+    if (!backup || !backup.settings) return;
+    // Set UI to backup settings and save
+    const restored = { ...backup.settings };
+    // If birthday_date is stored as ISO, convert to local datetime-local value
+    if (restored.birthday_date) {
+      try { restored.birthday_date = new Date(restored.birthday_date).toISOString().slice(0,16); } catch (e) {}
+    }
+    setSettings(restored);
+    // Persist restoration
+    await handleSaveSettings(new Event("submit"));
+  };
+
 
   // ── Login ────────────────────────────────────────────────────────────────────
   const handleLogin = async (e) => {
@@ -164,6 +246,13 @@ export default function AdminPage() {
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     setSaveStatus("Saving...");
+
+    // Create a restore point of current DB/settings before overwriting
+    try {
+      await createRestorePoint();
+    } catch (err) {
+      console.warn("Could not create automatic restore point:", err);
+    }
 
     const formattedDate = new Date(settings.birthday_date).toISOString();
     const updatedData   = { ...settings, birthday_date: formattedDate, updated_at: new Date().toISOString() };
@@ -284,6 +373,12 @@ export default function AdminPage() {
           </h2>
 
           <form onSubmit={handleSaveSettings}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => createRestorePoint()} style={{ padding: "8px 12px" }}>
+                <i className="fas fa-save"></i> Create Restore Point
+              </button>
+              <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.6)" }}>Manage restore points below</div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
               <div className="form-group">
                 <label>Surprise For (Name)</label>
@@ -354,6 +449,34 @@ export default function AdminPage() {
               </Link>
             </div>
           </form>
+        </div>
+
+        {/* Restore Points Panel */}
+        <div className="glass-panel" style={{ width: "100%", padding: "20px", marginTop: "20px" }}>
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>Restore Points</h3>
+          <p style={{ marginTop: 0, marginBottom: 12, color: "rgba(255,255,255,0.6)" }}>Create backups before saving. Restore to an earlier settings snapshot if needed.</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn btn-secondary" onClick={() => fetchBackups()}>Refresh</button>
+            </div>
+            <div style={{ maxHeight: 220, overflow: "auto", marginTop: 8 }}>
+              {backups.length === 0 ? (
+                <p style={{ color: "rgba(255,255,255,0.5)" }}>No restore points found.</p>
+              ) : (
+                backups.map((b, idx) => (
+                  <div key={b.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{b.settings.name || "Untitled"}</div>
+                      <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)" }}>{new Date(b.created_at).toLocaleString()}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-secondary" onClick={() => restoreBackup(b)}>Restore</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
 
       </div>
